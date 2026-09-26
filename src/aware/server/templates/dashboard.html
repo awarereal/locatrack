@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Locatrack</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #09090b;
+            --bg-secondary: #0f0f12;
+            --bg-card: #141419;
+            --bg-hover: #1a1a21;
+            --border: #1f1f28;
+            --border-light: #2a2a36;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #52525b;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app { display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 50;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 8px 12px;
+            margin-bottom: 40px;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 8px 24px var(--accent-glow);
+        }
+
+        .logo-text {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav { flex: 1; }
+
+        .nav-section { margin-bottom: 28px; }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            padding: 0 12px;
+            margin-bottom: 12px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 4px;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);
+            color: white;
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        .nav-item svg { width: 20px; height: 20px; opacity: 0.8; }
+        .nav-item.active svg { opacity: 1; }
+
+        .user-section {
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .user-info { flex: 1; min-width: 0; }
+        .user-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-email { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .btn-logout {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .btn-logout:hover { background: var(--bg-hover); color: var(--error); }
+
+        /* Main */
+        .main {
+            flex: 1;
+            margin-left: 280px;
+            padding: 32px 40px;
+            background: var(--bg-primary);
+        }
+
+        .page-header { margin-bottom: 36px; }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle { color: var(--text-secondary); font-size: 15px; }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 36px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.2s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-light);
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin-bottom: 16px;
+        }
+
+        .stat-icon.purple { background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2)); }
+        .stat-icon.green { background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(52,211,153,0.2)); }
+        .stat-icon.blue { background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(99,102,241,0.2)); }
+        .stat-icon.orange { background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(251,191,36,0.2)); }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 4px;
+        }
+
+        .stat-label { font-size: 14px; color: var(--text-secondary); }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-title { font-size: 16px; font-weight: 600; }
+        .card-body { padding: 24px; }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);
+            color: white;
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover { background: var(--border); }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            padding: 8px 12px;
+        }
+
+        .btn-ghost:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; }
+
+        th {
+            padding: 14px 20px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            background: var(--bg-hover);
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 16px 20px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover td { background: rgba(255,255,255,0.02); }
+        tr:last-child td { border-bottom: none; }
+
+        /* Badge */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success { background: rgba(16,185,129,0.15); color: var(--success); }
+        .badge-warning { background: rgba(245,158,11,0.15); color: var(--warning); }
+        .badge-error { background: rgba(239,68,68,0.15); color: var(--error); }
+
+        /* Location Cards */
+        .location-card {
+            display: flex;
+            gap: 16px;
+            padding: 18px;
+            background: var(--bg-hover);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .location-card:hover { border-color: var(--border-light); }
+        .location-card:last-child { margin-bottom: 0; }
+
+        .location-marker {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .location-info { flex: 1; }
+        .location-label { font-weight: 600; margin-bottom: 4px; }
+        .location-coords { font-size: 13px; color: var(--text-secondary); font-family: 'SF Mono', Monaco, monospace; }
+        .location-time { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+        /* Map */
+        .map-container {
+            height: 500px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg-hover);
+        }
+
+        #map { height: 100%; width: 100%; }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+        }
+
+        .modal-header { padding: 28px 28px 0; }
+        .modal-title { font-size: 20px; font-weight: 700; }
+        .modal-body { padding: 28px; }
+
+        .modal-footer {
+            padding: 20px 28px;
+            background: var(--bg-hover);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            border-radius: 0 0 20px 20px;
+        }
+
+        /* Form */
+        .form-group { margin-bottom: 24px; }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-secondary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg-hover);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-input::placeholder { color: var(--text-muted); }
+
+        /* URL Box */
+        .url-box {
+            display: flex;
+            gap: 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 6px;
+        }
+
+        .url-box input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+
+        .url-box input:focus { outline: none; }
+
+        /* Grid */
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+
+        /* Empty State */
+        .empty-state { text-align: center; padding: 48px 20px; }
+
+        .empty-icon {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 20px;
+            background: var(--bg-hover);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+
+        .empty-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+        .empty-text { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            background: var(--bg-card);
+            border: 1px solid var(--success);
+            border-radius: 12px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 200;
+        }
+
+        .toast.show { transform: translateY(0); opacity: 1; }
+
+        /* Code */
+        code {
+            background: var(--bg-hover);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+        }
+
+        /* Leaflet dark */
+        .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9); }
+        .leaflet-container { background: var(--bg-hover); }
+
+        @media (max-width: 1200px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 20px; }
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">📍</div>
+                <span class="logo-text">Locatrack</span>
+            </div>
+
+            <nav class="nav">
+                <div class="nav-section">
+                    <div class="nav-label">Overview</div>
+                    <a class="nav-item active" data-page="dashboard">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                        Dashboard
+                    </a>
+                    <a class="nav-item" data-page="links">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        Tracking Links
+                    </a>
+                    <a class="nav-item" data-page="map">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                        Live Map
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-label">Tools</div>
+                    <a class="nav-item" data-page="lookup">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        OSINT Lookup
+                    </a>
+                </div>
+            </nav>
+
+            <div class="user-section">
+                <div class="user-avatar" id="userAvatar">?</div>
+                <div class="user-info">
+                    <div class="user-name" id="userName">Loading...</div>
+                    <div class="user-email" id="userEmail"></div>
+                </div>
+                <button class="btn-logout" onclick="logout()" title="Logout">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                </button>
+            </div>
+        </aside>
+
+        <main class="main">
+            <!-- Dashboard -->
+            <div class="page" id="page-dashboard">
+                <div class="page-header">
+                    <h1 class="page-title">Dashboard</h1>
+                    <p class="page-subtitle">Track and monitor location data</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon purple">🔗</div>
+                        <div class="stat-value" id="statTotalLinks">0</div>
+                        <div class="stat-label">Total Links</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">📍</div>
+                        <div class="stat-value" id="statCaptured">0</div>
+                        <div class="stat-label">Captured</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon blue">⚡</div>
+                        <div class="stat-value" id="statActive">0</div>
+                        <div class="stat-label">Active</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orange">⏰</div>
+                        <div class="stat-value" id="statExpired">0</div>
+                        <div class="stat-label">Expired</div>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Recent Captures</h2>
+                        </div>
+                        <div class="card-body" id="recentCaptures">
+                            <div class="empty-state">
+                                <div class="empty-icon">📍</div>
+                                <div class="empty-title">No captures yet</div>
+                                <div class="empty-text">Create a tracking link and share it</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Quick Actions</h2>
+                        </div>
+                        <div class="card-body">
+                            <button class="btn btn-primary" onclick="openCreateModal()" style="width: 100%; margin-bottom: 16px;">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                Create Tracking Link
+                            </button>
+                            <button class="btn btn-secondary" onclick="showPage('lookup')" style="width: 100%;">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                OSINT Lookup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Links -->
+            <div class="page" id="page-links" style="display: none;">
+                <div class="page-header" style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <h1 class="page-title">Tracking Links</h1>
+                        <p class="page-subtitle">Manage your tracking links</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openCreateModal()">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        New Link
+                    </button>
+                </div>
+
+                <div class="card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Label</th>
+                                <th>Code</th>
+                                <th>Status</th>
+                                <th>Location</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="linksTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div class="page" id="page-map" style="display: none;">
+                <div class="page-header">
+                    <h1 class="page-title">Live Map</h1>
+                    <p class="page-subtitle">View all captured locations</p>
+                </div>
+
+                <div class="card">
+                    <div class="map-container"><div id="map"></div></div>
+                </div>
+            </div>
+
+            <!-- Lookup -->
+            <div class="page" id="page-lookup" style="display: none;">
+                <div class="page-header">
+                    <h1 class="page-title">OSINT Lookup</h1>
+                    <p class="page-subtitle">IP geolocation and phone info</p>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header"><h2 class="card-title">IP Lookup</h2></div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label class="form-label">IP Address</label>
+                                <input type="text" class="form-input" id="ipInput" placeholder="8.8.8.8">
+                            </div>
+                            <button class="btn btn-primary" onclick="lookupIP()">Lookup</button>
+                            <div id="ipResult" style="margin-top: 20px;"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header"><h2 class="card-title">Phone Lookup</h2></div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label class="form-label">Phone Number</label>
+                                <input type="text" class="form-input" id="phoneInput" placeholder="+1 555 123 4567">
+                            </div>
+                            <button class="btn btn-primary" onclick="lookupPhone()">Lookup</button>
+                            <div id="phoneResult" style="margin-top: 20px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Create Modal -->
+    <div class="modal-overlay" id="createModal">
+        <div class="modal">
+            <div class="modal-header"><h2 class="modal-title">Create Tracking Link</h2></div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Label (optional)</label>
+                    <input type="text" class="form-input" id="linkLabel" placeholder="e.g., John's location">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Expires in (hours)</label>
+                    <input type="number" class="form-input" id="linkExpires" value="24" min="1" max="720">
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="linkReusable" style="width: 18px; height: 18px; accent-color: var(--accent);">
+                        <span>Allow multiple uses</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="createLink()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Created Modal -->
+    <div class="modal-overlay" id="linkCreatedModal">
+        <div class="modal">
+            <div class="modal-header"><h2 class="modal-title">✓ Link Created</h2></div>
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">Share this link. When they open it and allow location, you'll see their coordinates.</p>
+                <div class="url-box">
+                    <input type="text" id="createdLinkUrl" readonly>
+                    <button class="btn btn-primary" onclick="copyLink()">Copy</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeLinkCreatedModal()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"><span id="toastMessage"></span></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const API = window.location.origin;
+        let token = localStorage.getItem('token');
+        let map = null;
+
+        if (!token) window.location.href = '/dashboard/login';
+
+        async function api(endpoint, opts = {}) {
+            const headers = { 'Content-Type': 'application/json', ...opts.headers };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(`${API}${endpoint}`, { ...opts, headers });
+            if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/dashboard/login'; }
+            return res;
+        }
+
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(`page-${id}`).style.display = 'block';
+            document.querySelector(`[data-page="${id}"]`).classList.add('active');
+            if (id === 'map') initMap();
+            if (id === 'links') loadLinks();
+        }
+
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => showPage(item.dataset.page));
+        });
+
+        function showToast(msg) {
+            document.getElementById('toastMessage').textContent = msg;
+            const t = document.getElementById('toast');
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function openCreateModal() { document.getElementById('createModal').classList.add('active'); }
+        function closeCreateModal() { document.getElementById('createModal').classList.remove('active'); }
+        function closeLinkCreatedModal() { document.getElementById('linkCreatedModal').classList.remove('active'); loadLinks(); loadDashboard(); }
+
+        async function createLink() {
+            const res = await api('/track', {
+                method: 'POST',
+                body: JSON.stringify({
+                    label: document.getElementById('linkLabel').value || null,
+                    expires_hours: parseInt(document.getElementById('linkExpires').value),
+                    single_use: !document.getElementById('linkReusable').checked
+                })
+            });
+            if (res.ok) {
+                const d = await res.json();
+                closeCreateModal();
+                document.getElementById('createdLinkUrl').value = d.url;
+                document.getElementById('linkCreatedModal').classList.add('active');
+                document.getElementById('linkLabel').value = '';
+            }
+        }
+
+        function copyLink() {
+            navigator.clipboard.writeText(document.getElementById('createdLinkUrl').value);
+            showToast('Copied!');
+        }
+
+        async function loadUser() {
+            const res = await api('/auth/me');
+            if (res?.ok) {
+                const u = await res.json();
+                document.getElementById('userName').textContent = u.username;
+                document.getElementById('userEmail').textContent = u.email;
+                document.getElementById('userAvatar').textContent = u.username.charAt(0).toUpperCase();
+            }
+        }
+
+        async function loadDashboard() {
+            const res = await api('/track');
+            if (res?.ok) {
+                const links = await res.json();
+                const captured = links.filter(l => l.captured_at);
+                document.getElementById('statTotalLinks').textContent = links.length;
+                document.getElementById('statCaptured').textContent = captured.length;
+                document.getElementById('statActive').textContent = links.filter(l => l.is_active).length;
+                document.getElementById('statExpired').textContent = links.filter(l => !l.is_active && !l.captured_at).length;
+
+                const c = document.getElementById('recentCaptures');
+                c.innerHTML = captured.length ? captured.slice(0, 5).map(l => `
+                    <div class="location-card">
+                        <div class="location-marker">📍</div>
+                        <div class="location-info">
+                            <div class="location-label">${l.label || 'Captured'}</div>
+                            <div class="location-coords">${l.latitude?.toFixed(6)}, ${l.longitude?.toFixed(6)}</div>
+                            <div class="location-time">${new Date(l.captured_at).toLocaleString()}</div>
+                        </div>
+                        <a href="https://www.google.com/maps?q=${l.latitude},${l.longitude}" target="_blank" class="btn btn-ghost">View</a>
+                    </div>
+                `).join('') : `<div class="empty-state"><div class="empty-icon">📍</div><div class="empty-title">No captures yet</div><div class="empty-text">Create a tracking link and share it</div></div>`;
+            }
+        }
+
+        async function loadLinks() {
+            const res = await api('/track');
+            if (res?.ok) {
+                const links = await res.json();
+                const tb = document.getElementById('linksTable');
+                tb.innerHTML = links.length ? links.map(l => {
+                    const st = l.captured_at ? ['Captured', 'success'] : !l.is_active ? ['Expired', 'error'] : ['Active', 'warning'];
+                    const loc = l.latitude ? `${l.latitude.toFixed(4)}, ${l.longitude.toFixed(4)}` : '—';
+                    return `<tr>
+                        <td>${l.label || '<span style="color:var(--text-muted)">—</span>'}</td>
+                        <td><code>${l.code}</code></td>
+                        <td><span class="badge badge-${st[1]}">${st[0]}</span></td>
+                        <td style="font-family:monospace">${loc}</td>
+                        <td>${new Date(l.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('${l.url}');showToast('Copied!')">📋</button>
+                            ${l.latitude ? `<a href="https://www.google.com/maps?q=${l.latitude},${l.longitude}" target="_blank" class="btn btn-ghost">🗺️</a>` : ''}
+                            <button class="btn btn-ghost" onclick="deleteLink('${l.code}')">🗑️</button>
+                        </td>
+                    </tr>`;
+                }).join('') : `<tr><td colspan="6" style="text-align:center;padding:48px"><div class="empty-icon" style="margin:0 auto 16px">🔗</div><div class="empty-title">No links</div></td></tr>`;
+            }
+        }
+
+        async function deleteLink(code) {
+            if (!confirm('Delete?')) return;
+            await api(`/track/${code}`, { method: 'DELETE' });
+            showToast('Deleted'); loadLinks(); loadDashboard();
+        }
+
+        function initMap() {
+            if (map) return;
+            map = L.map('map').setView([20, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            loadMarkers();
+        }
+
+        async function loadMarkers() {
+            const res = await api('/track');
+            if (res?.ok) {
+                const links = (await res.json()).filter(l => l.latitude);
+                links.forEach(l => L.marker([l.latitude, l.longitude]).addTo(map).bindPopup(`<b>${l.label || 'Captured'}</b><br>${l.latitude.toFixed(6)}, ${l.longitude.toFixed(6)}`));
+                if (links.length) map.fitBounds(links.map(l => [l.latitude, l.longitude]), { padding: [50, 50] });
+            }
+        }
+
+        async function lookupIP() {
+            const ip = document.getElementById('ipInput').value.trim();
+            if (!ip) return;
+            const c = document.getElementById('ipResult');
+            c.innerHTML = '<p style="color:var(--text-muted)">Loading...</p>';
+            const res = await api(`/lookup/ip/${ip}`);
+            if (res?.ok) {
+                const d = await res.json();
+                c.innerHTML = `<div style="background:var(--bg-hover);padding:20px;border-radius:12px;font-family:monospace;font-size:13px;line-height:2">
+                    <div><b>IP:</b> ${d.ip || ip}</div>
+                    <div><b>Location:</b> ${d.city || ''} ${d.region || ''} ${d.country || ''}</div>
+                    <div><b>Coords:</b> ${d.latitude || '—'}, ${d.longitude || '—'}</div>
+                    <div><b>ISP:</b> ${d.isp || '—'}</div>
+                </div>`;
+            }
+        }
+
+        async function lookupPhone() {
+            const p = document.getElementById('phoneInput').value.trim();
+            if (!p) return;
+            const c = document.getElementById('phoneResult');
+            c.innerHTML = '<p style="color:var(--text-muted)">Loading...</p>';
+            const res = await api(`/lookup/phone/${encodeURIComponent(p)}`);
+            if (res?.ok) {
+                const d = await res.json();
+                c.innerHTML = `<div style="background:var(--bg-hover);padding:20px;border-radius:12px;font-family:monospace;font-size:13px;line-height:2">
+                    <div><b>Valid:</b> ${d.valid ? 'Yes' : 'No'}</div>
+                    <div><b>Country:</b> ${d.country || '—'}</div>
+                    <div><b>Carrier:</b> ${d.carrier || '—'}</div>
+                    <div><b>Type:</b> ${d.line_type || '—'}</div>
+                </div>`;
+            }
+        }
+
+        function logout() { localStorage.removeItem('token'); window.location.href = '/dashboard/login'; }
+
+        loadUser(); loadDashboard();
+    </script>
+</body>
+</html>

@@ -7,9 +7,11 @@ Main API server for location sharing.
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from aware import __version__
 from aware.config import settings
@@ -97,12 +99,31 @@ async def track_redirect(code: str) -> RedirectResponse:
     return RedirectResponse(url=f"/track/page/{code}", status_code=302)
 
 
-# Root endpoint
+# Dashboard templates directory
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+
+# Dashboard routes
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard() -> HTMLResponse:
+    """Serve the main dashboard."""
+    template = TEMPLATES_DIR / "dashboard.html"
+    if template.exists():
+        return HTMLResponse(content=template.read_text())
+    return HTMLResponse(content="<h1>Dashboard not found</h1>", status_code=404)
+
+
+@app.get("/dashboard/login", response_class=HTMLResponse)
+async def dashboard_login() -> HTMLResponse:
+    """Serve the login page."""
+    template = TEMPLATES_DIR / "login.html"
+    if template.exists():
+        return HTMLResponse(content=template.read_text())
+    return HTMLResponse(content="<h1>Login page not found</h1>", status_code=404)
+
+
+# Root endpoint - redirect to dashboard
 @app.get("/")
-async def root() -> dict:
-    """Root endpoint with API info."""
-    return {
-        "name": "Aware API",
-        "version": __version__,
-        "docs": "/docs",
-    }
+async def root() -> RedirectResponse:
+    """Redirect root to dashboard."""
+    return RedirectResponse(url="/dashboard/login", status_code=302)

