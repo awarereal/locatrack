@@ -9,21 +9,11 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from aware.cli.commands.auth import get_auth_headers, get_server_url
+from aware.cli.commands.auth import get_server_url
 
 app = typer.Typer(help="Tracking link commands")
 console = Console()
 err_console = Console(stderr=True)
-
-
-def _check_auth() -> dict[str, str]:
-    """Check if logged in and return headers."""
-    headers = get_auth_headers()
-    if not headers:
-        err_console.print("[red]Not logged in[/red]")
-        err_console.print("[dim]Login with: aware auth login[/dim]")
-        raise typer.Exit(1)
-    return headers
 
 
 @app.command("create")
@@ -45,13 +35,11 @@ def create_link(
     """
     import httpx
 
-    headers = _check_auth()
     server_url = get_server_url()
 
     try:
         response = httpx.post(
             f"{server_url}/track",
-            headers=headers,
             json={
                 "label": label,
                 "expires_hours": expires,
@@ -101,13 +89,11 @@ def list_links() -> None:
     """
     import httpx
 
-    headers = _check_auth()
     server_url = get_server_url()
 
     try:
         response = httpx.get(
             f"{server_url}/track",
-            headers=headers,
             timeout=10.0,
         )
 
@@ -173,13 +159,11 @@ def show_link(
     """
     import httpx
 
-    headers = _check_auth()
     server_url = get_server_url()
 
     try:
         response = httpx.get(
             f"{server_url}/track",
-            headers=headers,
             timeout=10.0,
         )
 
@@ -249,13 +233,11 @@ def show_results() -> None:
     """
     import httpx
 
-    headers = _check_auth()
     server_url = get_server_url()
 
     try:
         response = httpx.get(
             f"{server_url}/track",
-            headers=headers,
             timeout=10.0,
         )
 
@@ -319,7 +301,6 @@ def delete_link(
     import httpx
     from rich.prompt import Confirm
 
-    headers = _check_auth()
     server_url = get_server_url()
 
     if not force:
@@ -329,7 +310,6 @@ def delete_link(
     try:
         response = httpx.delete(
             f"{server_url}/track/{code}",
-            headers=headers,
             timeout=10.0,
         )
 

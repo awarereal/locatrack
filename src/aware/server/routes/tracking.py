@@ -14,8 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aware.db.engine import get_db
-from aware.models import TrackingLink, User
-from aware.server.auth import get_current_user
+from aware.models import TrackingLink
 
 router = APIRouter()
 
@@ -58,7 +57,6 @@ class LocationCapture(BaseModel):
 async def create_tracking_link(
     data: TrackingLinkCreate,
     request: Request,
-    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Create a new tracking link."""
@@ -68,7 +66,6 @@ async def create_tracking_link(
         expires_at = datetime.now(timezone.utc) + timedelta(hours=data.expires_hours)
 
     link = TrackingLink(
-        user_id=current_user.id,
         label=data.label,
         expires_at=expires_at,
         single_use=data.single_use,
@@ -100,14 +97,12 @@ async def create_tracking_link(
 @router.get("", response_model=List[TrackingLinkResponse])
 async def list_tracking_links(
     request: Request,
-    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> List[dict]:
-    """List all tracking links for current user."""
+    """List all tracking links."""
 
     result = await db.execute(
         select(TrackingLink)
-        .where(TrackingLink.user_id == current_user.id)
         .order_by(TrackingLink.created_at.desc())
     )
     links = result.scalars().all()
@@ -137,16 +132,12 @@ async def list_tracking_links(
 @router.delete("/{code}")
 async def delete_tracking_link(
     code: str,
-    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Delete a tracking link."""
 
     result = await db.execute(
-        select(TrackingLink).where(
-            TrackingLink.code == code,
-            TrackingLink.user_id == current_user.id,
-        )
+        select(TrackingLink).where(TrackingLink.code == code)
     )
     link = result.scalar_one_or_none()
 

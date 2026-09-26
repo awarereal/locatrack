@@ -26,8 +26,8 @@ class TrackingLink(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(
         GUID(), primary_key=True, default=generate_uuid
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        GUID(), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     # Short code for URL
