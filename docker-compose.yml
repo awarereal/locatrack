@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  # PostgreSQL with PostGIS for production use
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: aware-db
+    environment:
+      POSTGRES_USER: aware
+      POSTGRES_PASSWORD: aware_dev_password
+      POSTGRES_DB: aware
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aware"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Aware API server
+  api:
+    build: .
+    container_name: aware-api
+    environment:
+      AWARE_DATABASE_URL: postgresql+asyncpg://aware:aware_dev_password@db:5432/aware
+      AWARE_SECRET_KEY: ${AWARE_SECRET_KEY:-dev-secret-change-in-production}
+      AWARE_DEBUG: "true"
+      AWARE_HOST: "0.0.0.0"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:ro
+    command: uvicorn aware.server.app:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
