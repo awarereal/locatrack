@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 from aware.lookups.ip_info import IPLookupResult, lookup_ip
-from aware.lookups.phone import PhoneParseResult, parse_phone_number
+from aware.lookups.phone import PhoneOSINTResult, phone_osint
 from aware.lookups.username import UsernameResult, search_username
 
 router = APIRouter()
@@ -46,19 +46,20 @@ async def lookup_ip_endpoint(ip_address: str) -> IPLookupResult:
 async def lookup_phone_endpoint(
     phone_number: str,
     default_region: str = Query("US", description="Default region for parsing"),
-) -> PhoneParseResult:
+    deep_scan: bool = Query(True, description="Perform online OSINT lookups"),
+) -> PhoneOSINTResult:
     """
-    Parse and validate a phone number.
+    Comprehensive phone number OSINT lookup.
 
-    Returns carrier, region, timezone, and format information.
-    The phone number can include + for country code.
+    Returns carrier, region, Google dorks, social media links,
+    reputation data, and online presence checks.
     """
-    result = parse_phone_number(phone_number, default_region)
+    result = await phone_osint(phone_number, default_region, deep_scan=deep_scan)
 
     if not result.success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=result.error or "Phone parsing failed",
+            detail=result.error or "Phone lookup failed",
         )
 
     return result

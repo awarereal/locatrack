@@ -67,12 +67,13 @@ dev = [
 ]
 
 [project.scripts]
+locatrack = "aware.cli.app:main"
 aware = "aware.cli.app:main"
 
 [project.urls]
-Homepage = "https://github.com/aware/aware"
-Documentation = "https://github.com/aware/aware#readme"
-Repository = "https://github.com/aware/aware"
+Homepage = "https://github.com/awarereal/locatrack"
+Documentation = "https://github.com/awarereal/locatrack#readme"
+Repository = "https://github.com/awarereal/locatrack"
 
 [build-system]
 requires = ["hatchling"]

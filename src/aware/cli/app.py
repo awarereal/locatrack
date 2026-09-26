@@ -1,16 +1,21 @@
 """
-Aware CLI application.
+Locatrack CLI application.
 
-Main entry point for all CLI commands.
+Premium OSINT and location tracking tool.
 """
 
+import os
+import signal
+import subprocess
 import sys
+import time
 from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich import box
 
 from aware import __version__
 from aware.cli.commands import auth, circle, link, lookup, server, track
@@ -18,81 +23,152 @@ from aware.config import settings
 
 # Main CLI app
 app = typer.Typer(
-    name="aware",
-    help="Consent-based location sharing and OSINT lookup tool.",
+    name="locatrack",
+    help="OSINT intelligence & location tracking tool.",
     no_args_is_help=False,
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=settings.debug,
 )
 
 # Register command groups
-app.add_typer(server.app, name="server", help="Start and manage the API server")
-app.add_typer(auth.app, name="auth", help="Authentication commands")
-app.add_typer(track.app, name="track", help="Location tracking commands")
-app.add_typer(circle.app, name="circle", help="Manage sharing circles")
-app.add_typer(link.app, name="link", help="Tracking link commands")
-app.add_typer(lookup.app, name="lookup", help="OSINT lookup commands")
+app.add_typer(server.app, name="server", help="Manage the API server")
+app.add_typer(auth.app, name="auth", help="Authentication")
+app.add_typer(track.app, name="track", help="Location tracking")
+app.add_typer(circle.app, name="circle", help="Sharing circles")
+app.add_typer(link.app, name="link", help="Tracking links")
+app.add_typer(lookup.app, name="lookup", help="OSINT lookups")
 
-# Console for output
 console = Console()
 err_console = Console(stderr=True)
 
+# Calvin S style ASCII banner
+BANNER = r"""
+[bold cyan]
+╦  ╔═╗╔═╗╔═╗╔╦╗╦═╗╔═╗╔═╗╦╔═
+║  ║ ║║  ╠═╣ ║ ╠╦╝╠═╣║  ╠╩╗
+╩═╝╚═╝╚═╝╩ ╩ ╩ ╩╚═╩ ╩╚═╝╩ ╩[/bold cyan]
+[dim]OSINT Intelligence & Location Tracking[/dim]
+"""
+
+SERVER_PID_FILE = os.path.expanduser("~/.locatrack_server.pid")
+
 
 def print_banner() -> None:
-    """Print the Aware banner."""
-    banner = r"""
-[bold cyan]    ___
-   /   |_      ______ _________
-  / /| | | /| / / __ `/ ___/ _ \
- / ___ | |/ |/ / /_/ / /  /  __/
-/_/  |_|__/|__/\__,_/_/   \___/[/bold cyan]
-    """
-    console.print(banner)
-    console.print(f"[dim]v{__version__} • Consent-based location sharing[/dim]\n")
+    """Print the main banner."""
+    console.print(BANNER)
+    console.print(f"[dim]v{__version__}[/dim]\n")
+
+
+def is_server_running() -> bool:
+    """Check if server is running."""
+    import httpx
+    try:
+        resp = httpx.get(f"http://127.0.0.1:{settings.port}/health", timeout=2.0)
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
+def start_background_server() -> bool:
+    """Start server in background if not running."""
+    if is_server_running():
+        return True
+
+    console.print("[dim]Starting server in background...[/dim]")
+
+    try:
+        # Start uvicorn in background
+        proc = subprocess.Popen(
+            [
+                sys.executable, "-m", "uvicorn",
+                "aware.server.app:app",
+                "--host", "127.0.0.1",
+                "--port", str(settings.port),
+                "--log-level", "error",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+        # Save PID
+        with open(SERVER_PID_FILE, "w") as f:
+            f.write(str(proc.pid))
+
+        # Wait for startup
+        for _ in range(20):
+            time.sleep(0.25)
+            if is_server_running():
+                console.print(f"[green]✓ Server running on port {settings.port}[/green]")
+                return True
+
+        err_console.print("[yellow]Server started but not responding yet[/yellow]")
+        return False
+
+    except Exception as e:
+        err_console.print(f"[red]Failed to start server: {e}[/red]")
+        return False
+
+
+def stop_background_server() -> None:
+    """Stop background server if running."""
+    if os.path.exists(SERVER_PID_FILE):
+        try:
+            with open(SERVER_PID_FILE) as f:
+                pid = int(f.read().strip())
+            os.kill(pid, signal.SIGTERM)
+            os.remove(SERVER_PID_FILE)
+            console.print("[dim]Server stopped[/dim]")
+        except Exception:
+            pass
+
+
+def ensure_server() -> bool:
+    """Ensure server is running for features that need it."""
+    if not is_server_running():
+        return start_background_server()
+    return True
 
 
 def print_menu() -> None:
     """Print the interactive menu."""
-    table = Table(show_header=False, box=None, padding=(0, 2))
-    table.add_column("Key", style="cyan bold", width=6)
+    table = Table(
+        show_header=False,
+        box=box.ROUNDED,
+        border_style="cyan",
+        padding=(0, 2),
+    )
+    table.add_column("Key", style="bold cyan", width=4)
     table.add_column("Action", style="white")
 
-    table.add_row("[1]", "Start/stop location tracking")
-    table.add_row("[2]", "View shared locations")
-    table.add_row("[3]", "Manage sharing circles")
-    table.add_row("[4]", "IP geolocation lookup")
-    table.add_row("[5]", "Phone number lookup")
-    table.add_row("[6]", "Username search")
-    table.add_row("[7]", "Server management")
-    table.add_row("[0]", "Exit")
+    table.add_row("1", "📱 Phone OSINT lookup")
+    table.add_row("2", "🌐 IP geolocation")
+    table.add_row("3", "👤 Username search")
+    table.add_row("4", "🔗 Create tracking link")
+    table.add_row("5", "📍 View captured locations")
+    table.add_row("6", "⚙️  Server management")
+    table.add_row("0", "Exit")
 
-    console.print(Panel(table, title="[bold]Menu[/bold]", border_style="cyan"))
+    console.print(Panel(table, title="[bold]MENU[/bold]", border_style="cyan"))
 
 
 @app.callback(invoke_without_command=True)
 def main_callback(
     ctx: typer.Context,
-    version: bool = typer.Option(
-        False, "--version", "-v", help="Show version and exit"
-    ),
-    interactive: bool = typer.Option(
-        False, "--interactive", "-i", help="Start interactive mode"
-    ),
+    version: bool = typer.Option(False, "--version", "-v", help="Show version"),
 ) -> None:
     """
-    Aware - Consent-based location sharing and OSINT lookup tool.
+    Locatrack - OSINT intelligence & location tracking.
 
-    Run without arguments for interactive mode, or use subcommands directly.
+    Run without arguments for interactive mode.
     """
     if version:
-        console.print(f"Aware v{__version__}")
+        console.print(f"Locatrack v{__version__}")
         raise typer.Exit()
 
-    # If a subcommand was invoked, let it handle things
     if ctx.invoked_subcommand is not None:
         return
 
-    # Interactive mode
     run_interactive()
 
 
@@ -104,56 +180,59 @@ def run_interactive() -> None:
         print_menu()
 
         try:
-            choice = console.input("\n[cyan]Select option:[/cyan] ").strip()
+            choice = console.input("\n[cyan]>[/cyan] ").strip()
         except (KeyboardInterrupt, EOFError):
             console.print("\n[dim]Goodbye![/dim]")
             break
+
+        console.print()
 
         if choice == "0":
             console.print("[dim]Goodbye![/dim]")
             break
         elif choice == "1":
-            _run_command(["track", "status"])
+            _interactive_phone()
         elif choice == "2":
-            _run_command(["live"])
+            _interactive_ip()
         elif choice == "3":
-            _run_command(["circle", "list"])
+            _interactive_user()
         elif choice == "4":
-            _interactive_ip_lookup()
+            _interactive_link()
         elif choice == "5":
-            _interactive_phone_lookup()
+            _interactive_locations()
         elif choice == "6":
-            _interactive_username_lookup()
-        elif choice == "7":
-            _run_command(["server", "status"])
+            _server_menu()
         else:
-            err_console.print(f"[red]Invalid option: {choice}[/red]")
+            err_console.print(f"[red]Invalid option[/red]")
 
-        console.print()  # Blank line before next menu
+        console.print()
 
 
-def _interactive_ip_lookup() -> None:
-    """Interactive IP geolocation lookup."""
+def _interactive_phone() -> None:
+    """Phone OSINT lookup."""
     try:
-        ip = console.input("[cyan]Enter IP address:[/cyan] ").strip()
-        if ip:
-            _run_command(["lookup", "ip", ip])
-    except (KeyboardInterrupt, EOFError):
-        pass
-
-
-def _interactive_phone_lookup() -> None:
-    """Interactive phone number lookup."""
-    try:
-        phone = console.input("[cyan]Enter phone number (with country code):[/cyan] ").strip()
+        phone = console.input("[magenta]Enter phone number:[/magenta] ").strip()
         if phone:
             _run_command(["lookup", "phone", phone])
     except (KeyboardInterrupt, EOFError):
         pass
 
 
-def _interactive_username_lookup() -> None:
-    """Interactive username search."""
+def _interactive_ip() -> None:
+    """IP geolocation lookup."""
+    try:
+        ip = console.input("[cyan]Enter IP address (or 'me'):[/cyan] ").strip()
+        if ip:
+            if ip.lower() == "me":
+                _run_command(["lookup", "myip"])
+            else:
+                _run_command(["lookup", "ip", ip])
+    except (KeyboardInterrupt, EOFError):
+        pass
+
+
+def _interactive_user() -> None:
+    """Username search."""
     try:
         username = console.input("[cyan]Enter username:[/cyan] ").strip()
         if username:
@@ -162,12 +241,60 @@ def _interactive_username_lookup() -> None:
         pass
 
 
-def _run_command(args: list[str]) -> None:
-    """Run a CLI command programmatically."""
+def _interactive_link() -> None:
+    """Create tracking link."""
+    if not ensure_server():
+        err_console.print("[red]Server required for tracking links[/red]")
+        return
+
     try:
-        # Save original argv and replace
+        label = console.input("[cyan]Label (optional):[/cyan] ").strip()
+        args = ["link", "create"]
+        if label:
+            args.extend(["--label", label])
+        _run_command(args)
+    except (KeyboardInterrupt, EOFError):
+        pass
+
+
+def _interactive_locations() -> None:
+    """View captured locations."""
+    if not ensure_server():
+        err_console.print("[red]Server required[/red]")
+        return
+    _run_command(["link", "list"])
+
+
+def _server_menu() -> None:
+    """Server management submenu."""
+    status = "[green]Running[/green]" if is_server_running() else "[red]Stopped[/red]"
+    console.print(f"Server status: {status}")
+    console.print()
+    console.print("[1] Start server")
+    console.print("[2] Stop server")
+    console.print("[3] Open dashboard")
+    console.print("[0] Back")
+
+    try:
+        choice = console.input("\n[cyan]>[/cyan] ").strip()
+        if choice == "1":
+            start_background_server()
+        elif choice == "2":
+            stop_background_server()
+        elif choice == "3":
+            if ensure_server():
+                import webbrowser
+                webbrowser.open(f"http://127.0.0.1:{settings.port}/dashboard")
+                console.print("[green]Opened dashboard in browser[/green]")
+    except (KeyboardInterrupt, EOFError):
+        pass
+
+
+def _run_command(args: list[str]) -> None:
+    """Run a CLI command."""
+    try:
         original_argv = sys.argv
-        sys.argv = ["aware"] + args
+        sys.argv = ["locatrack"] + args
         try:
             app(standalone_mode=False)
         finally:
@@ -179,24 +306,45 @@ def _run_command(args: list[str]) -> None:
 
 
 @app.command()
-def live(
-    refresh: int = typer.Option(5, "--refresh", "-r", help="Refresh interval in seconds"),
+def scan(
+    target: str = typer.Argument(..., help="Phone number, IP address, or username"),
 ) -> None:
-    """Show live dashboard of shared locations."""
-    from aware.cli.display import show_live_dashboard
+    """
+    Quick scan - auto-detect target type.
 
-    show_live_dashboard(refresh_interval=refresh)
+    Example:
+        locatrack scan +14155551234
+        locatrack scan 8.8.8.8
+        locatrack scan johndoe
+    """
+    import re
+
+    target = target.strip()
+
+    # Phone number (starts with + or contains country code patterns)
+    if target.startswith("+") or re.match(r"^\d{10,15}$", target.replace("-", "").replace(" ", "")):
+        console.print("[magenta]Detected: Phone number[/magenta]\n")
+        _run_command(["lookup", "phone", target])
+
+    # IP address
+    elif re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", target):
+        console.print("[cyan]Detected: IP address[/cyan]\n")
+        _run_command(["lookup", "ip", target])
+
+    # Username
+    else:
+        console.print("[blue]Detected: Username[/blue]\n")
+        _run_command(["lookup", "user", target])
 
 
 @app.command()
-def history(
-    limit: int = typer.Option(50, "--limit", "-n", help="Number of entries to show"),
-    device: Optional[str] = typer.Option(None, "--device", "-d", help="Filter by device"),
-) -> None:
-    """Show location history."""
-    from aware.cli.display import show_history
-
-    show_history(limit=limit, device_filter=device)
+def dashboard() -> None:
+    """Open the web dashboard in browser."""
+    if ensure_server():
+        import webbrowser
+        url = f"http://127.0.0.1:{settings.port}/dashboard"
+        webbrowser.open(url)
+        console.print(f"[green]Opened {url}[/green]")
 
 
 def main() -> None:

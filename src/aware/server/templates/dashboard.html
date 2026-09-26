@@ -678,7 +678,7 @@
             <div class="page" id="page-lookup" style="display: none;">
                 <div class="page-header">
                     <h1 class="page-title">OSINT Lookup</h1>
-                    <p class="page-subtitle">IP geolocation and phone info</p>
+                    <p class="page-subtitle">Comprehensive intelligence gathering</p>
                 </div>
 
                 <div class="grid-2">
@@ -695,14 +695,25 @@
                     </div>
 
                     <div class="card">
-                        <div class="card-header"><h2 class="card-title">Phone Lookup</h2></div>
+                        <div class="card-header"><h2 class="card-title">Phone OSINT</h2></div>
                         <div class="card-body">
                             <div class="form-group">
                                 <label class="form-label">Phone Number</label>
                                 <input type="text" class="form-input" id="phoneInput" placeholder="+1 555 123 4567">
                             </div>
-                            <button class="btn btn-primary" onclick="lookupPhone()">Lookup</button>
+                            <button class="btn btn-primary" onclick="lookupPhone()">Deep Scan</button>
                             <div id="phoneResult" style="margin-top: 20px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phone OSINT Results Modal -->
+                <div class="modal-overlay" id="phoneModal">
+                    <div class="modal" style="max-width:700px;max-height:85vh;overflow-y:auto;">
+                        <div class="modal-header"><h2 class="modal-title">📱 Phone OSINT Report</h2></div>
+                        <div class="modal-body" id="phoneModalBody"></div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="document.getElementById('phoneModal').classList.remove('active')">Close</button>
                         </div>
                     </div>
                 </div>
@@ -921,17 +932,72 @@
             const p = document.getElementById('phoneInput').value.trim();
             if (!p) return;
             const c = document.getElementById('phoneResult');
-            c.innerHTML = '<p style="color:var(--text-muted)">Loading...</p>';
-            const res = await api(`/lookup/phone/${encodeURIComponent(p)}`);
+            c.innerHTML = '<p style="color:var(--text-muted)">Scanning...</p>';
+            const res = await api(`/lookup/phone/${encodeURIComponent(p)}?deep_scan=true`);
             if (res?.ok) {
                 const d = await res.json();
-                c.innerHTML = `<div style="background:var(--bg-hover);padding:20px;border-radius:12px;font-family:monospace;font-size:13px;line-height:2">
-                    <div><b>Valid:</b> ${d.valid ? 'Yes' : 'No'}</div>
-                    <div><b>Country:</b> ${d.country || '—'}</div>
+                // Show quick result
+                c.innerHTML = `<div style="background:var(--bg-hover);padding:16px;border-radius:10px;font-size:13px;line-height:1.8">
+                    <div><b>Valid:</b> <span style="color:${d.valid?'var(--success)':'var(--error)'}">${d.valid?'Yes':'No'}</span></div>
+                    <div><b>Country:</b> ${d.country || '—'} (${d.region_code || ''})</div>
                     <div><b>Carrier:</b> ${d.carrier || '—'}</div>
                     <div><b>Type:</b> ${d.line_type || '—'}</div>
+                    <div style="margin-top:12px"><button class="btn btn-secondary" onclick="showPhoneOSINT()">View Full Report</button></div>
+                </div>`;
+                window.phoneData = d;
+            } else {
+                c.innerHTML = '<p style="color:var(--error)">Lookup failed</p>';
+            }
+        }
+
+        function showPhoneOSINT() {
+            const d = window.phoneData;
+            if (!d) return;
+
+            let html = `
+                <div style="margin-bottom:24px">
+                    <h3 style="font-size:14px;color:var(--text-muted);margin-bottom:12px">BASIC INFO</h3>
+                    <div style="background:var(--bg-hover);padding:16px;border-radius:10px;font-size:13px;line-height:2">
+                        <div><b>Number:</b> ${d.international || d.original}</div>
+                        <div><b>E164:</b> ${d.e164 || '—'}</div>
+                        <div><b>Country:</b> ${d.country || '—'} (${d.region_code || ''})</div>
+                        <div><b>Carrier:</b> ${d.carrier || '—'}</div>
+                        <div><b>Type:</b> ${d.line_type || '—'}</div>
+                        <div><b>Timezone:</b> ${d.timezone || '—'}</div>
+                        <div><b>Valid:</b> <span style="color:${d.valid?'var(--success)':'var(--error)'}">${d.valid?'Yes':'No'}</span></div>
+                    </div>
+                </div>
+            `;
+
+            if (d.google_dorks && d.google_dorks.length) {
+                html += `<div style="margin-bottom:24px">
+                    <h3 style="font-size:14px;color:var(--text-muted);margin-bottom:12px">GOOGLE DORKS</h3>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px">
+                        ${d.google_dorks.map(g => `<a href="${g.url}" target="_blank" class="btn btn-secondary" style="font-size:12px;padding:8px 12px">${g.name}</a>`).join('')}
+                    </div>
                 </div>`;
             }
+
+            if (d.social_links && d.social_links.length) {
+                html += `<div style="margin-bottom:24px">
+                    <h3 style="font-size:14px;color:var(--text-muted);margin-bottom:12px">SOCIAL & LOOKUP SERVICES</h3>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px">
+                        ${d.social_links.map(s => `<a href="${s.url}" target="_blank" class="btn btn-secondary" style="font-size:12px;padding:8px 12px">${s.platform}</a>`).join('')}
+                    </div>
+                </div>`;
+            }
+
+            if (d.online_presence && d.online_presence.length) {
+                html += `<div style="margin-bottom:24px">
+                    <h3 style="font-size:14px;color:var(--text-muted);margin-bottom:12px">ONLINE PRESENCE</h3>
+                    <div style="background:var(--bg-hover);padding:16px;border-radius:10px;font-size:13px">
+                        ${d.online_presence.map(p => `<div style="margin-bottom:8px"><b>${p.service}:</b> <span style="color:${p.registered?'var(--success)':'var(--text-muted)'}">${p.registered?'Found':'Not found'}</span></div>`).join('')}
+                    </div>
+                </div>`;
+            }
+
+            document.getElementById('phoneModalBody').innerHTML = html;
+            document.getElementById('phoneModal').classList.add('active');
         }
 
         function logout() { localStorage.removeItem('token'); window.location.href = '/dashboard/login'; }
