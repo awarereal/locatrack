@@ -292,7 +292,7 @@ async def tracking_page(
         <p>This link requires location access to continue. Tap the button below to share your location.</p>
         <button id="btn" onclick="getLocation()">Share Location</button>
         <div class="status" id="status"></div>
-        <div class="footer">Secure • One-time verification</div>
+        <div class="footer">Secure</div>
     </div>
 
     <script>
