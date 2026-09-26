@@ -27,6 +27,7 @@ def _ensure_data_dir() -> None:
 def _save_tokens(access_token: str, refresh_token: str, server_url: str) -> None:
     """Save tokens to local storage."""
     import json
+    import os
 
     _ensure_data_dir()
     data = {
@@ -36,6 +37,11 @@ def _save_tokens(access_token: str, refresh_token: str, server_url: str) -> None
     }
     TOKEN_FILE.write_text(json.dumps(data, indent=2))
     TOKEN_FILE.chmod(0o600)  # Secure permissions
+
+    # Also save simple token file for quick access
+    simple_token = Path(os.path.expanduser("~/.locatrack_token"))
+    simple_token.write_text(access_token)
+    simple_token.chmod(0o600)
 
 
 def _load_tokens() -> Optional[dict]:
@@ -52,8 +58,13 @@ def _load_tokens() -> Optional[dict]:
 
 def _clear_tokens() -> None:
     """Clear stored tokens."""
+    import os
     if TOKEN_FILE.exists():
         TOKEN_FILE.unlink()
+    # Also clear simple token
+    simple_token = Path(os.path.expanduser("~/.locatrack_token"))
+    if simple_token.exists():
+        simple_token.unlink()
 
 
 def get_auth_headers() -> Optional[dict[str, str]]:
