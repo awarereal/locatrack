@@ -4,6 +4,7 @@ from aware.models.base import Base, TimestampMixin, generate_uuid
 from aware.models.device import Device
 from aware.models.location import Location
 from aware.models.sharing import Circle, CircleMember, Invitation
+from aware.models.tracking import TrackingLink
 from aware.models.user import RefreshToken, User
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "Circle",
     "CircleMember",
     "Invitation",
+    "TrackingLink",
 ]

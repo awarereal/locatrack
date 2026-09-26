@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from aware import __version__
-from aware.cli.commands import auth, circle, lookup, server, track
+from aware.cli.commands import auth, circle, link, lookup, server, track
 from aware.config import settings
 
 # Main CLI app
@@ -30,6 +30,7 @@ app.add_typer(server.app, name="server", help="Start and manage the API server")
 app.add_typer(auth.app, name="auth", help="Authentication commands")
 app.add_typer(track.app, name="track", help="Location tracking commands")
 app.add_typer(circle.app, name="circle", help="Manage sharing circles")
+app.add_typer(link.app, name="link", help="Tracking link commands")
 app.add_typer(lookup.app, name="lookup", help="OSINT lookup commands")
 
 # Console for output
