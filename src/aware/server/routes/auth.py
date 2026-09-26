@@ -44,8 +44,16 @@ class UserResponse(BaseModel):
     email: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_user(cls, user: "User") -> "UserResponse":
+        return cls(
+            id=str(user.id),
+            username=user.username,
+            email=user.email,
+            created_at=user.created_at,
+        )
 
 
 class TokenResponse(BaseModel):
@@ -98,7 +106,7 @@ async def register(
     db.add(user)
     await db.flush()
 
-    return user
+    return UserResponse.from_user(user)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -234,6 +242,6 @@ async def logout(
 @router.get("/me", response_model=UserResponse)
 async def get_me(
     current_user: User = Depends(get_current_user),
-) -> User:
+) -> UserResponse:
     """Get current user info."""
-    return current_user
+    return UserResponse.from_user(current_user)
