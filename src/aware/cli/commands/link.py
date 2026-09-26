@@ -239,6 +239,72 @@ def show_link(
         err_console.print("[red]Cannot connect to server[/red]")
 
 
+@app.command("results")
+def show_results() -> None:
+    """
+    Show captured locations - clean and easy to read.
+
+    Example:
+        locatrack link results
+    """
+    import httpx
+
+    headers = _check_auth()
+    server_url = get_server_url()
+
+    try:
+        response = httpx.get(
+            f"{server_url}/track",
+            headers=headers,
+            timeout=10.0,
+        )
+
+        if response.status_code == 200:
+            links = response.json()
+            captured = [l for l in links if l.get("captured_at")]
+
+            if not captured:
+                console.print()
+                console.print(Panel(
+                    "[yellow]No locations captured yet[/yellow]\n\n"
+                    "Send your tracking link to someone.\n"
+                    "When they click and allow location, it shows here.",
+                    title="[bold]Results[/bold]",
+                    border_style="yellow",
+                ))
+                return
+
+            console.print()
+            console.print(f"[bold green]CAPTURED LOCATIONS ({len(captured)})[/bold green]")
+            console.print()
+
+            for i, link in enumerate(captured, 1):
+                lat = link.get("latitude")
+                lon = link.get("longitude")
+                acc = link.get("accuracy_meters", 0)
+                ip = link.get("ip_address", "Unknown")
+                label = link.get("label") or "Unknown"
+                captured_at = link.get("captured_at", "")[:19].replace("T", " ")
+
+                console.print(f"[bold cyan]{i}. {label}[/bold cyan]")
+                console.print(f"   [bold]Location:[/bold]  {lat:.6f}, {lon:.6f}" if lat else "   [yellow]No GPS[/yellow]")
+                console.print(f"   [bold]Accuracy:[/bold]  {acc:.0f}m")
+                console.print(f"   [bold]IP:[/bold]        {ip}")
+                console.print(f"   [bold]Time:[/bold]      {captured_at}")
+
+                if lat and lon:
+                    maps_url = f"https://www.google.com/maps?q={lat},{lon}"
+                    console.print(f"   [bold]Map:[/bold]       [link={maps_url}][blue]{maps_url}[/blue][/link]")
+
+                console.print()
+
+        else:
+            err_console.print(f"[red]Failed: {response.text}[/red]")
+
+    except httpx.ConnectError:
+        err_console.print("[red]Cannot connect to server[/red]")
+
+
 @app.command("delete")
 def delete_link(
     code: str = typer.Argument(..., help="Link code to delete"),
